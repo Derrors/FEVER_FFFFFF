@@ -33,6 +33,7 @@ download_if_not_exist() {
         echo "$2 already exists. skipping download..."
     fi
 }
+
 download_if_not_exist "https://s3-eu-west-1.amazonaws.com/fever.public/train.jsonl" "data/train.jsonl"
 download_if_not_exist "https://s3-eu-west-1.amazonaws.com/fever.public/shared_task_dev.jsonl" "data/dev.jsonl"
 download_if_not_exist "https://s3-eu-west-1.amazonaws.com/fever.public/shared_task_test.jsonl" "data/test.jsonl"
