@@ -12,9 +12,8 @@ def div(x,y):
     if y==0:
         return 1.0
     else:
-        return x/y
-#def div(x,y):
-#    return x
+        return x / y
+
 
 def line_features(c_toks=set(), title="", t_toks=set(), line="", l_toks=set(), lid=0, score=0):
     features=dict()

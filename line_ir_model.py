@@ -143,10 +143,6 @@ def load_selected(fname="data/line_ir_lines"):
                 selected[cid]=dict()
             selected[cid][yn]=[t,i,l,s]
     return selected
-                    
-            
-        
-
 
 
 if __name__ == "__main__":

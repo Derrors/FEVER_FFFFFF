@@ -10,7 +10,6 @@ import pickle
 import json
 
 
-
 def get_evidence(data=dict(), n_docs=5, n_sents=5):
     with open("data/edocs.bin","rb") as rb:
         edocs=pickle.load(rb)
@@ -86,8 +85,3 @@ if __name__=="__main__":
         with open(out_file, "w") as w:
             for example in pred:
                 w.write(json.dumps(example)+"\n")
-
-
-
-
-

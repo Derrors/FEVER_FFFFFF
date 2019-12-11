@@ -1,133 +1,154 @@
-import json
-import random
+
 import re
 import os
 import sys
+import json
+import random
+
 from util import abs_path
 from tqdm import tqdm
 
+
 def save_jsonl(dictionaries, path, print_message=True, skip_if_exists=False):
-    """save jsonl file from list of dictionaries
-    """
+    '''
+    将保存字典的列表输出为 jsonl 文件
+    '''
+    # 待保存文件存在时处理方式
     if os.path.exists(path):
         if not skip_if_exists:
-            raise OSError("file {} already exists".format(path))
+            raise OSError('file {} already exists'.format(path))
         else:
-            print("CAUTION: skip saving (file {} already exists)".format(path))
+            print('CAUTION: skip saving (file {} already exists)'.format(path))
             return
 
     if print_message:
-        print("saving at {}".format(path))
-    with open(path, "a") as out_file:
+        print('saving at {}'.format(path))
+
+    with open(path, 'a') as out_file:
         for instance in dictionaries:
-            out_file.write(json.dumps(instance) + "\n")
+            out_file.write(json.dumps(instance) + '\n')
+
 
 def read_jsonl(path):
-    with open(path, "r") as in_file:
+    '''
+    读取 jsonl 文件
+    '''
+    with open(path, 'r') as in_file:
         out = [json.loads(line) for line in in_file]
-
     return out
 
-def load_doc_lines(docs=dict(),t2jnum=dict(),wikipedia_dir="data/wiki-pages/wiki-pages/"):
-    """Returns a dictionary from titles to line numbers to line text.
-    Args
-    docs: {cid: [(title, score),  ...], ...}
 
-    Input is a dictionary from claim ids to titles and line numbers, 
-    and a lookup from titles to filenumbers.
-    """
-    doclines=dict()
-    jnums=dict()
-    titles=set()
+def load_doc_lines(docs=dict(), t2jnum=dict(), wikipedia_dir='./data/wiki-pages/'):
+    '''
+    建立由 title 查找对应的 line_id 和 line_text 的字典
+    参数：
+    docs: claim ids 对应 titles 的字典   # {cid: [(title, score),  ...], ...}
+    t2jnum: title 对应 jsonl num 的字典
+    '''
+
+    doclines = dict()               # title -> jnum -> line_id, line_text
+    jnums = dict()                  # jnum -> point1, point2, ...
+    titles = set()
+
+    # 获取 title 和 title 对应的 jnum, point
     for cid in docs:
-        for title, score in docs[cid]:
-            doclines[title]=dict()
+        for title, _ in docs[cid]:
+            doclines[title] = dict()
             titles.add(title)
-            jnum,point=t2jnum[title]
+
+            jnum, point = t2jnum[title]
             if jnum not in jnums:
-                jnums[jnum]=set()
+                jnums[jnum] = set()
             jnums[jnum].add(point)
+
     for jnum in tqdm(jnums):
-        points=sorted(list(jnums[jnum]))
-        fname=wikipedia_dir+"wiki-"+jnum+".jsonl"
-        with open(fname, "r") as f:
+        points = sorted(list(jnums[jnum]))               # 对 point 排序
+        fname = wikipedia_dir + 'wiki-' + jnum + '.jsonl'
+        with open(fname, 'r') as f:
             for point in points:
-                f.seek(point,0)
-                line=f.readline()
-                data=json.loads(line.rstrip("\n"))
-                title=data["id"]
-                lines=data["lines"]
-                assert title in titles
-                if title in titles and lines != "":
-                    for l in lines.split("\n"):
-                        fields=l.split("\t")
+                f.seek(point, 0)
+                line = f.readline()
+                # 读取为字典结构
+                data = json.loads(line.strip())
+                title = data['id']
+                lines = data['lines']
+                # 将 title 对应 line num, line_text 加入字典
+                if title in titles and lines != '':
+                    for l in lines.split('\n'):
+                        fields = l.split('\t')
                         if fields[0].isnumeric():
-                            l_id=int(fields[0])
-                            l_txt=fields[1]
-                            doclines[title][l_id]=l_txt
+                            l_id = int(fields[0])
+                            l_text = fields[1]
+                            doclines[title][l_id] = l_text
     return doclines
-        
-            
+
+         
 def load_doclines(titles, t2jnum, filtering=True):
-    """load all lines for provided titles
-    Args
+    '''
+    加载 title 对应的所有 lines
+
+    参数：
     titles: list of titles
-    """
+
+    '''
+    # 过滤掉不在 t2jnum 里的标题
     if filtering:
         filtered_titles = [title for title in titles if title in t2jnum]
-        print("mismatch: {} / {}".format(len(titles) - len(filtered_titles), len(titles)))
+        print('mismatch: {} / {}'.format(len(titles) - len(filtered_titles), len(titles)))
         titles = filtered_titles
 
-    return load_doc_lines({"dummy_id" : [(title, "dummy_linum") for title in titles]}, t2jnum, wikipedia_dir=abs_path("data/wiki-pages/wiki-pages/"))
+    return load_doc_lines({'dummy_id' : [(title, 'dummy_linum') for title in titles]}, t2jnum, wikipedia_dir=abs_path('data/wiki-pages/'))
 
-def titles_to_jsonl_num(wikipedia_dir="data/wiki-pages/wiki-pages/", doctitles="data/doctitles"):
-    """
-    Returns a dictionary lookup from document titles to jsonl filenumbers and pointers.
-    Saves the lookup in data/doctitles to speed up subsequent passes.
-    """
-    t2jnum=dict()
+
+def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/doctitles'):
+    '''
+    建立从文档标题到 jsonl 编号文件的查找字典, 并保存到 ./data/doctitles 以加速读取
+    t2jnum = {'title': (jnum, point), ...}
+    '''
+    t2jnum = dict()
     try:
-        with open(doctitles, "r") as f:
+        with open(doctitles, 'r') as f:
             for line in f:
-                fields=line.rstrip("\n").split("\t")
-                title=fields[0]
-                jnum=fields[1]
-                point=int(fields[2])
-                t2jnum[title]=(jnum,point)
+                fields = line.strip().split('\t')
+                title = fields[0]                   # 标题
+                jnum = fields[1]                    # 对应的 jsonl 文件编号
+                point = int(fields[2])
+                t2jnum[title] = (jnum, point)
             if len(t2jnum) == 0:
-                raise RuntimeError("doctitles file ({}) might be empty.".format(doctitles))
+                raise RuntimeError('doctitles file ({}) might be empty.'.format(doctitles))
     except:
-        with open(doctitles,"w") as w:
-            for i in tqdm(range(1,110)):
-                jnum="{:03d}".format(i)
-                fname=wikipedia_dir+"wiki-"+jnum+".jsonl"
+        with open(doctitles,'w') as w:
+            for i in tqdm(range(1, 110)):
+                jnum = '{:03d}'.format(i)
+                fname = wikipedia_dir + 'wiki-' + jnum + '.jsonl'
                 with open(fname) as f:
-                    point=f.tell()
-                    line=f.readline()
+                    point = f.tell()
+                    line = f.readline()
                     while line:
-                        data=json.loads(line.rstrip("\n"))
-                        title=data["id"]
-                        lines=data["lines"]
-                        w.write(title+"\t"+jnum+"\t"+str(point)+"\n")
-                        t2jnum[title]=(jnum,point)
-                        point=f.tell()
-                        line=f.readline()
+                        data = json.loads(line.strip())
+                        title = data['id']
+                        lines = data['lines']
+                        w.write(title + '\t' + jnum + '\t' + str(point) + '\n')
+                        t2jnum[title] = (jnum, point)
+                        point = f.tell()
+                        line = f.readline()
     return t2jnum
 
 
 def get_evidence_sentence_list(evidences, t2l2s, prependlinum=False, prependtitle=False):
-    """lookup corresponding sentences and return list of sentences
-    Args
-    evidences: [(title, linum), ...]
-    t2l2s: title2line2sentence <- output of load_doc_lines
+    '''
+    根据 evidences 里的 title, linum 在 t2l2s 找到对应的 sentences
 
-    Returns
-    list of evidence sentences
-    """
-    SEP = "#"
-    def process_title(title):
-        """ 'hoge_fuga_hoo' -> 'hoge fuga hoo' """
-        return re.sub("_", " ", title)
+    参数：
+    evidences: [(title, linum), ...]
+    t2l2s: title -> linum -> sentence
+
+    返回值：
+    evidence sentences list
+
+    '''
+
+    SEP = '#'
 
     def maybe_prepend(title, linum):
         prep = list()
@@ -136,110 +157,113 @@ def get_evidence_sentence_list(evidences, t2l2s, prependlinum=False, prependtitl
         if prependlinum:
             prep.append(str(linum))
 
-        content = " {} ".format(SEP).join(prep)
+        content = ' {} '.format(SEP).join(prep)
         if prep:
-            return "{0} {1} {0}".format(SEP, content)
+            return '{0} {1} {0}'.format(SEP, content)
         else:
             return content
 
     titles = [title for title, _ in evidences]
     linums = [linum for _, linum in evidences]
 
-    return [ (maybe_prepend(process_title(title), linum) + " " + t2l2s[title][linum]).strip() for title, linum in zip(titles, linums)]
+    evidences_sentences = []
+    for title, linum in zip(titles, linums):
+        _title = re.sub('_', ' ', title)                # 'hoge_fuga_hoo' -> 'hoge fuga hoo'
+        sentence = maybe_prepend(_title, linum) + ' ' + t2l2s[title][linum]
+        sentence.strip()
+        evidences_sentences.append(sentence)
+
+    return evidences_sentences
 
 
-def load_wikipedia(wikipedia_dir="data/wiki-pages/wiki-pages/", howmany=99999):
-    """
-    Returns a list with in total 5,416,537 wikipedia article texts as elements.
-    If one doesn't want to load all articles, one can use "howmany" to specify howmany files should be
-    read (each containing 50000 articles). For example, to read only 100K articles, pick howmany=2.
-    """
+def load_wikipedia(wikipedia_dir='./data/wiki-pages/', n_files=1000):
+    '''
+    加载 wiki-pages 数据, 每个 file 包含 50k articles.
+    返回包含所有 wikipedia article texts 的列表
+    '''
     all_texts = []
-    print("loading wikipedia...")
-    for filename in tqdm(sorted(os.listdir(wikipedia_dir))[:howmany]):
-        with open(wikipedia_dir+filename, 'r') as openfile:
-            some_texts = [json.loads(line)['text'] for line in openfile.readlines()]
-        all_texts.extend(some_texts)
-    print("Loaded", len(all_texts), "articles. Size (MB):", round(sys.getsizeof(all_texts)/1024/1024, 3))
+    print('loading wikipedia...')
+    
+    # 获取需要加载的文件名并排序
+    file_names = sorted(os.listdir(wikipedia_dir))[: n_files]
+    for file_name in tqdm(file_names):
+        with open(wikipedia_dir + file_name, 'r') as openfile:
+            texts = [json.loads(line)['text'] for line in openfile.readlines()]
+        all_texts.extend(texts)
+    print('Loaded', len(all_texts), 'articles. Size (MB):', round(sys.getsizeof(all_texts) / 1024 / 1024, 3))
+
     return all_texts
 
+'''
 def get_label_set():
-    label_set = {"SUPPORTS","REFUTES","NOT ENOUGH INFO"}
+    label_set = {'SUPPORTS','REFUTES','NOT ENOUGH INFO'}
     return label_set
+'''
+
+def load_fever_train(path='data/train.jsonl', n_instances=999999):
+    '''
+    加载训练集
+    '''
+    data = []
+    with open(path, 'r') as openfile:
+        for i, line in enumerate(openfile.readlines()):
+            data.append(json.loads(line))
+            if i + 1 >= n_instances:
+                break
+    return data
 
 
-def load_split_trainset(dev_size:int):
-    """
-    Loads the full training set, splits it into preliminary train and dev set.
-    This preliminary dev set is balanced.
-    dev_size: size of dev set.
-    """
-
+def load_split_trainset(dev_size):
+    '''
+    加载全部训练数据, 并初步划分为训练集和验证集
+    '''
     # load fever training data
     full_train = load_fever_train()
 
-    positives = []
-    negatives = []
-    neutrals = []
+    positives = []              # SUPPORT 类数据
+    negatives = []              # REFUTES 类数据
+    neutrals = []               # NEI 类数据
 
-    # sort dataset according to label.
+    # 根据标签对数据分类
     for example in full_train:
-        example['id']
         label = example['label']
-        if label == "SUPPORTS":
+        if label == 'SUPPORTS':
             positives.append(example)
-        elif label == "REFUTES":
+        elif label == 'REFUTES':
             negatives.append(example)
-        elif label == "NOT ENOUGH INFO":
+        elif label == 'NOT ENOUGH INFO':
             neutrals.append(example)
-        else:
-            raise AssertionError("Bad label!", label)
 
-    # shuffle examples for each label.
-    random.seed(42)
+    # 随机乱序
+    random.seed(2020)
     random.shuffle(positives)
     random.shuffle(negatives)
     random.shuffle(neutrals)
 
-    # split off a preliminary dev set, balanced across each of the three classes
-    size = int(dev_size/3)
-    preliminary_dev_set = positives[:size] + negatives[:size] + neutrals[:size]
+    # 划分验证集, 三类平衡
+    size = int(dev_size / 3)
+    dev_set = positives[: size] + negatives[: size] + neutrals[: size]
+    # 剩余数据作为训练集
+    train_set = positives[size: ] + negatives[size: ] + neutrals[size: ]
 
-    # the remaining data will be the new training data
-    train_set = positives[size:] + negatives[size:] + neutrals[size:]
-
-    # shuffle order of examples
-    random.shuffle(preliminary_dev_set)
+    random.shuffle(dev_set)
     random.shuffle(train_set)
 
-    return train_set, preliminary_dev_set
+    return train_set, dev_set
 
 
-def load_fever_train(path="data/train.jsonl", howmany=999999):
-    """
-    Reads the Fever Training set, returns list of examples.
-    howmany: how many examples to load. Useful for debugging.
-    """
-    data = []
-    with open(path, 'r') as openfile:
-        for iline, line in enumerate(openfile.readlines()):
-            data.append(json.loads(line))
-            if iline+1 >= howmany:
-                break
-    return data
-
-def load_paper_dataset(train=abs_path("data/train.jsonl"), dev=abs_path("data/dev.jsonl")):
-    """Reads the Fever train/dev set used on the paper.
-    """
-    train_ds = load_fever_train(path=train, howmany=9999999999)
-    dev_ds = load_fever_train(path=dev, howmany=9999999999)
+def load_paper_dataset(train=abs_path('./data/train.jsonl'), dev=abs_path('./data/dev.jsonl')):
+    '''
+    加载论文对应数据
+    '''
+    train_ds = load_fever_train(path=train, n_instances=9999999999)
+    dev_ds = load_fever_train(path=dev, n_instances=9999999999)
     return train_ds, dev_ds
 
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     # load fever training data
-    fever_data = load_fever_train(howmany=20)
+    fever_data = load_fever_train(n_instances=20)
     print(len(fever_data))
 
     # load train and split-off dev set of size 9999.
@@ -247,9 +271,6 @@ if __name__ == "__main__":
     print(len(train))
     print(len(dev))
 
-
-    for sample in train[:3]:
+    for sample in train[: 3]:
         print(sample)
 
-    # s = Sample(train[0])
-    # print(s.__dict__)
