@@ -98,7 +98,7 @@ def count_labels(train):
 
 def select_docs(train):
     '''
-    在训练数据中进行采样
+    在训练数据中进行采样负样本
 
     返回值：
     seleted[cid][yn] = [title, phrase, start]
@@ -261,7 +261,7 @@ if __name__ == '__main__':
         X, y = model.process_train(selected, train)
         # 训练模型
         model.fit(X,y)
-        # 存储寻来好的模型
+        # 存储训练好的模型
         with open('./data/doc_ir_model.bin', 'wb') as wb:
             if os.path.getsize('./data/edocs.bin') < 100:
                 raise RuntimeError('Size of edocs.bin is too small. It may be an empty file.')

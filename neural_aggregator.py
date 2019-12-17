@@ -55,12 +55,6 @@ class PredictedLabelsDataset(Dataset):
         else:
             label = create_target(self.instances[idx]["label"])
 
-        if not self.instances[idx]["scores"]:
-            pass
-            #print("missing", idx)
-            # print(self.instances[idx])
-            # import ipdb
-            # ipdb.set_trace()
         if self.use_ev_scores:
             input = create_input3(  # rather than create_input2
                 self.instances[idx]["predicted_labels"],
