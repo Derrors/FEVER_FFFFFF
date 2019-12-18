@@ -87,7 +87,7 @@ def evidence_format(evidences):
     return ' '.join(evidences)
 
 
-def convert_instance(instance, t2l2s, prependline_num, prependtitle, use_ir_prediction, n_sentences):
+def convert_instance(instance, t2l2s, use_ir_prediction, n_sentences):
     '''
     将单个实例转换为一个或多个实例
     参数：
@@ -111,12 +111,11 @@ def convert_instance(instance, t2l2s, prependline_num, prependtitle, use_ir_pred
                     id='{}-{}'.format(instance['id'], str(eidx)),
                     pair_id='{}-{}'.format(instance['id'], str(eidx)),
                     label=convert_label(label),
-                    evidence=evidence_format(get_evidence_sentence_list([(title, line_num)], t2l2s, prependline_num=prependline_num, prependtitle=prependtitle)),
+                    evidence=evidence_format(get_evidence_sentence_list([(title, line_num)], t2l2s)),
                     claim=instance['claim']))
         converted_instances = sampling(converted_instances)
 
     else:
-
         for eidx, evidence_set in enumerate(instance['evidence']):
             # 先将 evidences 转换为元组形式
             evidence_line_num = [(title, line_num) for _, _, title, line_num in evidence_set if title in t2l2s]
@@ -127,12 +126,12 @@ def convert_instance(instance, t2l2s, prependline_num, prependtitle, use_ir_pred
                     id='{}-{}'.format(instance['id'], str(eidx)),
                     pair_id='{}-{}'.format(instance['id'], str(eidx)),
                     label=convert_label(instance['label']),
-                    evidence=evidence_format(get_evidence_sentence_list(evidence_line_num, t2l2s, prependline_num=prependline_num, prependtitle=prependtitle)),
+                    evidence=evidence_format(get_evidence_sentence_list(evidence_line_num, t2l2s)),
                     claim=instance['claim']))
     return converted_instances
 
 
-def convert(instances, prependline_num=False, prependtitle=False, use_ir_prediction=False, n_sentences=5):
+def convert(instances, use_ir_prediction=False, n_sentences=5):
     '''
     将 FEVER 数据格式转换成 SNLI 数据格式
     参数:
@@ -164,8 +163,7 @@ def convert(instances, prependline_num=False, prependtitle=False, use_ir_predict
 
     converted_instances = list()
     for instance in tqdm(instances, desc='conversion'):
-        converted_instances.extend(convert_instance(
-                instance, t2l2s, prependline_num=prependline_num, prependtitle=prependtitle, use_ir_prediction=use_ir_prediction, n_sentences=n_sentences))
+        converted_instances.extend(convert_instance(instance, t2l2s, use_ir_prediction=use_ir_prediction, n_sentences=n_sentences))
     return converted_instances
 
 
@@ -175,8 +173,6 @@ if __name__ == '__main__':
     parser.add_argument('tar')
     parser.add_argument('--use_ir_pred', action='store_true')
     parser.add_argument('--n_sentences', default=5, type=int)
-    parser.add_argument('--prependline_num', action='store_true')
-    parser.add_argument('--prependtitle', action='store_true')
     parser.add_argument('--convert_test', action='store_true')
     # parser.add_argument('--testset', help='turn on when you convert test data', action='store_true')
     args = parser.parse_args()
@@ -187,7 +183,7 @@ if __name__ == '__main__':
 
         print('input:\n', test_in)
         fever_format = json.loads(test_in)
-        snli_format_instances = convert(fever_format, prependline_num=args.prependline_num, prependtitle=args.prependtitle, use_ir_prediction=args.use_ir_pred, n_sentences=args.n_sentences)
+        snli_format_instances = convert(fever_format, use_ir_prediction=args.use_ir_pred, n_sentences=args.n_sentences)
         print('\noutput:\n', json.dumps(snli_format_instances, indent=4))
 
     else:
@@ -196,5 +192,5 @@ if __name__ == '__main__':
         keyerr_count = 0
 
         instances = read_jsonl(args.src)
-        snli_format_instances = convert(instances, prependline_num=args.prependline_num, prependtitle=args.prependtitle, use_ir_prediction=args.use_ir_pred, n_sentences=args.n_sentences)
+        snli_format_instances = convert(instances, use_ir_prediction=args.use_ir_pred, n_sentences=args.n_sentences)
         save_jsonl(snli_format_instances, args.tar, skip_if_exists=True)

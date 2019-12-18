@@ -135,7 +135,7 @@ def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/do
     return t2jnum
 
 
-def get_evidence_sentence_list(evidences, t2l2s, prependlinum=False, prependtitle=False):
+def get_evidence_sentence_list(evidences, t2l2s):
     '''
     根据 evidences 里的 title, linum 在 t2l2s 找到对应的 sentences
 
@@ -152,10 +152,7 @@ def get_evidence_sentence_list(evidences, t2l2s, prependlinum=False, prependtitl
 
     def maybe_prepend(title, linum):
         prep = list()
-        if prependtitle:
-            prep.append(title)
-        if prependlinum:
-            prep.append(str(linum))
+        prep.append(title)
 
         content = ' {} '.format(SEP).join(prep)
         if prep:
