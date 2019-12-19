@@ -211,7 +211,7 @@ if __name__ == '__main__':
     print(args)
     hyperparameter2performance = dict()
 
-    for n_sentences in [5]:
+    for n_sentences in [9]:
         print('=========== n_sentences {}============'.format(str(n_sentences)))
         args.n_sentences = n_sentences
         # number of inputs will be 4 times number of evidence sentences.
