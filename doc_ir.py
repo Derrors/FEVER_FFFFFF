@@ -26,7 +26,7 @@ def title_edict(t2jnum={}):
         if len(_title) > 0:
             if edocs[_title][0] is None:
                 edocs[_title] = []
-            edocs[_title][0].append(_title)
+            edocs[_title][0].append(title)
     return edocs
 
 
@@ -156,7 +156,7 @@ def best_titles(claim='', edocs=edict(), best=5, model=None):
     '''
     # 在 claim 中寻找文档标题和相关句子
     t2phrases = find_titles_in_claim(claim, edocs)
-    tscore = list()
+    tscores = list()
 
     # 对每个标题打分
     for title in t2phrases:

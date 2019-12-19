@@ -148,7 +148,7 @@ def select_docs(train):
 
         # 如果 claim 中出现的 title 全部存在于证据对应的文档集中，即 claim 可通过其中出现的 title 来获取对应的证据
         if flag:
-            tots[l] += 1
+            tots[label] += 1
 
     selected = dict()
 
