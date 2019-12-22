@@ -1,17 +1,16 @@
 # _*_ coding: utf-8 _*_
 
-import sys
 import argparse
-import numpy as np
 from collections import Counter
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from fever_io import read_jsonl, save_jsonl
+from torch.utils.data import DataLoader, Dataset
 
+from fever_io import read_jsonl, save_jsonl
 
 np.random.seed(1)
 torch.backends.cudnn.deterministic = True
@@ -27,6 +26,8 @@ refutes = idx2label[1]
 nei = idx2label[2]
 
 # 3层全连接网络
+
+
 class Net(nn.Module):
     def __init__(self, layers=[15, 10, 5]):
         super(Net, self).__init__()
@@ -69,13 +70,13 @@ class Predicted_Labels_Dataset(Dataset):
                 self.instances[idx]['scores'],
                 self.instances[idx]['ev_scores'],
                 n_sentences=self.n_sentences
-                )
+            )
         else:
             input = create_input(
                 self.instances[idx]['predicted_labels'],
                 self.instances[idx]['scores'],
                 n_sentences=self.n_sentences
-                )
+            )
 
         return (label, input)
 
@@ -109,7 +110,7 @@ def create_input(predicted_labels, scores, n_sentences):
     zero_pad_idx = 3
 
     pred_labels = [label2idx[pred_label] for pred_label in predicted_labels]
-    scores = sco res.copy()
+    scores = scores.copy()
 
     # 如果句子数小于 n_sentences, 则标签补 3, 得分补 0
     if len(pred_labels) < n_sentences:
@@ -117,7 +118,7 @@ def create_input(predicted_labels, scores, n_sentences):
         pred_labels += [zero_pad_idx] * n_fillup
         scores += [0.] * n_fillup
 
-    one_hot = zero_plus_eye[pred_labels, : ]            # 4种标签的 One-hot 形式
+    one_hot = zero_plus_eye[pred_labels, :]            # 4种标签的 One-hot 形式
 
     np_out = np.reshape(np.multiply(one_hot, np.expand_dims(scores, axis=1)), (-1))
 
@@ -163,7 +164,7 @@ def simple_test(dev_dataloader):
 
     with torch.no_grad():
         for i, (target, input) in enumerate(dev_dataloader):
-            neural_pred = net(input.float())
+            neural_pred = model(input.float())
             _, pred_labels = torch.max(neural_pred, 1)
             neural_hit += torch.sum(pred_labels == target)
 
@@ -180,7 +181,7 @@ def predict(test_dataloader):
 
     with torch.no_grad():
         for i, (labels, input) in enumerate(test_dataloader):
-            neural_preds = net(input.float())
+            neural_preds = model(input.float())
             _, pred_labels = torch.max(neural_preds, 1)
 
             for label, neural_pred in zip(labels, pred_labels):
@@ -190,6 +191,57 @@ def predict(test_dataloader):
                 })
 
     return results
+
+
+def run_aggregator(config):
+
+    train_set = Predicted_Labels_Dataset(config['train_file'], config['n_sentences'], sampling=config['sampling'], use_ev_scores=config['evi_scores'])
+    dev_set = Predicted_Labels_Dataset(config['dev_file'], config['n_sentences'], use_ev_scores=config['evi_scores'])
+    test_set = Predicted_Labels_Dataset(config['test_file'], config['n_sentences'], use_ev_scores=config['evi_scores'], test=True)
+
+    train_dataloader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=0)
+    dev_dataloader = DataLoader(dev_set, batch_size=64, shuffle=False, num_workers=0)
+    test_dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=0)
+
+    model = Net(layers=[int(width) for width in config['layers']])
+
+    class_weights = [1.0, 1.0, 1.0]
+    label2freq = Counter((instance['label'] for instance in train_set.instances))
+    total = sum(label2freq.values())
+    for label in label2freq:
+        class_weights[label2idx[label]] = 1.0 / (label2freq[label]) * total
+
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights))
+    optimizer = optim.Adam(model.parameters())
+
+    dev_results = []
+
+    for epoch in range(config['epochs']):
+        running_loss = 0.0
+
+        for i, (labels, inputs) in enumerate(train_dataloader):
+            optimizer.zero_grad()
+
+            outputs = model(inputs.float())
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+            if i % 1000 == 999:
+                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 1000))
+                running_loss = 0.0
+        dev_results.append(simple_test(dev_dataloader))
+
+    print('Finished Training.')
+    performance = max(dev_results)
+    print('dev set:', performance)
+
+    dev_results = predict(dev_dataloader)
+    test_results = predict(test_dataloader)
+    save_jsonl(dev_results, config['dev_predicted_labels'])
+    save_jsonl(test_results, config['test_predicted_labels'])
 
 
 if __name__ == '__main__':
@@ -233,7 +285,7 @@ if __name__ == '__main__':
         label2freq = Counter((instance['label'] for instance in train_set.instances))
         total = sum(label2freq.values())
         for label in label2freq:
-            class_weights[ label2idx[label] ] = 1.0 / (label2freq[label]) * total
+            class_weights[label2idx[label]] = 1.0 / (label2freq[label]) * total
         print(label2freq)
         print('Class Weights:', class_weights)
 
@@ -241,7 +293,7 @@ if __name__ == '__main__':
         optimizer = optim.Adam(model.parameters())
 
         dev_results_throughout_training = []
-        
+
         for epoch in range(args.epochs):
             print('epoch:', epoch)
             running_loss = 0.0
@@ -268,7 +320,6 @@ if __name__ == '__main__':
 
     for k, v in sorted(hyperparameter2performance.items()):
         print(v)
-
 
     dev_results = predict(dev_dataloader)
     test_results = predict(test_dataloader)

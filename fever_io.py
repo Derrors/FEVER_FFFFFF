@@ -1,12 +1,13 @@
 
-import re
-import os
-import sys
 import json
+import os
 import random
+import re
+import sys
+
+from tqdm import tqdm
 
 from util import abs_path
-from tqdm import tqdm
 
 
 def save_jsonl(dictionaries, path, print_message=True, skip_if_exists=False):
@@ -82,7 +83,7 @@ def load_doc_lines(docs=dict(), t2jnum=dict(), wikipedia_dir='./data/wiki-pages/
                             doclines[title][l_id] = l_text
     return doclines
 
-         
+
 def load_doclines(titles, t2jnum, filtering=True):
     '''
     加载 title 对应的所有 lines
@@ -97,7 +98,7 @@ def load_doclines(titles, t2jnum, filtering=True):
         print('mismatch: {} / {}'.format(len(titles) - len(filtered_titles), len(titles)))
         titles = filtered_titles
 
-    return load_doc_lines({'dummy_id' : [(title, 'dummy_linum') for title in titles]}, t2jnum, wikipedia_dir=abs_path('data/wiki-pages/'))
+    return load_doc_lines({'dummy_id': [(title, 'dummy_linum') for title in titles]}, t2jnum, wikipedia_dir=abs_path('data/wiki-pages/'))
 
 
 def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/doctitles'):
@@ -116,8 +117,8 @@ def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/do
                 t2jnum[title] = (jnum, point)
             if len(t2jnum) == 0:
                 raise RuntimeError('doctitles file ({}) might be empty.'.format(doctitles))
-    except:
-        with open(doctitles,'w') as w:
+    except BaseException:
+        with open(doctitles, 'w') as w:
             for i in tqdm(range(1, 110)):
                 jnum = '{:03d}'.format(i)
                 fname = wikipedia_dir + 'wiki-' + jnum + '.jsonl'
@@ -127,7 +128,6 @@ def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/do
                     while line:
                         data = json.loads(line.strip())
                         title = data['id']
-                        lines = data['lines']
                         w.write(title + '\t' + jnum + '\t' + str(point) + '\n')
                         t2jnum[title] = (jnum, point)
                         point = f.tell()
@@ -180,7 +180,7 @@ def load_wikipedia(wikipedia_dir='./data/wiki-pages/', n_files=1000):
     '''
     all_texts = []
     print('loading wikipedia...')
-    
+
     # 获取需要加载的文件名并排序
     file_names = sorted(os.listdir(wikipedia_dir))[: n_files]
     for file_name in tqdm(file_names):
@@ -191,11 +191,13 @@ def load_wikipedia(wikipedia_dir='./data/wiki-pages/', n_files=1000):
 
     return all_texts
 
+
 '''
 def get_label_set():
     label_set = {'SUPPORTS','REFUTES','NOT ENOUGH INFO'}
     return label_set
 '''
+
 
 def load_fever_train(path='data/train.jsonl', n_instances=999999):
     '''
@@ -241,7 +243,7 @@ def load_split_trainset(dev_size):
     size = int(dev_size / 3)
     dev_set = positives[: size] + negatives[: size] + neutrals[: size]
     # 剩余数据作为训练集
-    train_set = positives[size: ] + negatives[size: ] + neutrals[size: ]
+    train_set = positives[size:] + negatives[size:] + neutrals[size:]
 
     random.shuffle(dev_set)
     random.shuffle(train_set)
@@ -270,4 +272,3 @@ if __name__ == '__main__':
 
     for sample in train[: 3]:
         print(sample)
-

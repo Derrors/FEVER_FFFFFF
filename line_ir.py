@@ -1,14 +1,14 @@
 # _*_ coding: utf-8 _*_
 
 import pickle
-from tqdm import tqdm
 from collections import Counter
-from nltk import word_tokenize, sent_tokenize
+
+from nltk import word_tokenize
+from tqdm import tqdm
 
 from doc_ir import doc_ir, title_edict
-from util import normalize_title, load_stoplist
-from fever_io import load_doc_lines, titles_to_jsonl_num, load_split_trainset
-
+from fever_io import load_doc_lines, load_split_trainset, titles_to_jsonl_num
+from util import load_stoplist, normalize_title
 
 stop = load_stoplist()
 
@@ -65,23 +65,24 @@ def line_features(c_toks=set(), title='', t_toks=set(), line='', l_toks=set(), l
 
     return features
 
+
 def score_line(features=dict()):
     '''
     特征权重
     '''
     vlist = {
-        'lenl'  : 0.032, 
-        'tinl'  :-0.597, 
-        'lid'   :-0.054, 
-        'lid0'  : 1.826, 
-        'pc'    :-3.620, 
-        'pl'    : 3.774, 
-        'pcns'  : 3.145, 
-        'plns'  :-6.423, 
-        'pcnt'  : 4.195, 
-        'pcntns': 2.795, 
+        'lenl': 0.032,
+        'tinl': -0.597,
+        'lid': -0.054,
+        'lid0': 1.826,
+        'pc': -3.620,
+        'pl': 3.774,
+        'pcns': 3.145,
+        'plns': -6.423,
+        'pcnt': 4.195,
+        'pcntns': 2.795,
         'plntns': 5.133
-        }
+    }
 
     score = 0
 
@@ -106,8 +107,8 @@ def best_lines(claim='', tscores=list(), lines=dict(), best=5, model=None):
             line = lines[title][lid]
             l_toks = set(word_tokenize(line.lower()))
             if len(l_toks) > 0:
-                if model == None:
-                    lscores.append((title, lid, score_line(line_features(c_toks, t,t_toks, line, l_toks, lid, tscore))))
+                if model is None:
+                    lscores.append((title, lid, score_line(line_features(c_toks, t, t_toks, line, l_toks, lid, tscore))))
                 else:
                     lscores.append((title, lid, model.score_instance(c_toks, t, t_toks, line, l_toks, lid, tscore)))
     lscores = sorted(lscores, key=lambda x: -1 * x[2])[: best]
@@ -124,7 +125,6 @@ def line_hits(data=list(), evidence=dict()):
 
     for example in data:
         cid = example['id']
-        claim = example['claim']
         label = example['label']
 
         if label == 'NOT ENOUGH INFO':
@@ -135,7 +135,7 @@ def line_hits(data=list(), evidence=dict()):
         for evi in all_evidence:
             evi_d = evi[2]
             evi_line = evi[3]
-            if evi_d != None:
+            if evi_d is not None:
                 if evi_d not in lines:
                     lines[evi_d] = set()
                 lines[evi_d].add(evi_line)
@@ -190,15 +190,14 @@ def line_ir(data=list(), docs=dict(), lines=dict(), best=5, model=None):
     return evidence
 
 
-
 if __name__ == '__main__':
     t2jnum = titles_to_jsonl_num()
     try:
-        with open('./data/edocs.bin','rb') as rb:
+        with open('./data/edocs.bin', 'rb') as rb:
             edocs = pickle.load(rb)
-    except:
+    except BaseException:
         edocs = title_edict(t2jnum)
-        with open('./data/edocs.bin','wb') as wb:
+        with open('./data/edocs.bin', 'wb') as wb:
             pickle.dump(edocs, wb)
 
     train, dev = load_split_trainset(9999)

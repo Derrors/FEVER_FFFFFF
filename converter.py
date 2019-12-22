@@ -4,19 +4,20 @@
 将 FEVER 数据集格式转换为 SNLI 数据格式
 '''
 
-import os
-import re
-import json
 import argparse
-from tqdm import tqdm
+import json
+import os
 from collections import Counter
 
-from util import abs_path
-from analyse import compare_evidences
-from fever_io import titles_to_jsonl_num, load_doclines, read_jsonl, save_jsonl, get_evidence_sentence_list
+from tqdm import tqdm
 
+from analyse import compare_evidences
+from fever_io import (get_evidence_sentence_list, load_doclines, read_jsonl,
+                      save_jsonl, titles_to_jsonl_num)
+from util import abs_path
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 def convert_label(label, inverse=False):
     '''
@@ -108,11 +109,11 @@ def convert_instance(instance, t2l2s, use_ir_prediction, n_sentences):
         for eidx, ((title, line_num), contained) in enumerate(zip(evidence_line_num, contained_flags)):
             label = instance['label'] if (instance['label'] != 'NOT ENOUGH INFO' and contained) else 'NOT ENOUGH INFO'
             converted_instances.append(snli_format(
-                    id='{}-{}'.format(instance['id'], str(eidx)),
-                    pair_id='{}-{}'.format(instance['id'], str(eidx)),
-                    label=convert_label(label),
-                    evidence=evidence_format(get_evidence_sentence_list([(title, line_num)], t2l2s)),
-                    claim=instance['claim']))
+                id='{}-{}'.format(instance['id'], str(eidx)),
+                pair_id='{}-{}'.format(instance['id'], str(eidx)),
+                label=convert_label(label),
+                evidence=evidence_format(get_evidence_sentence_list([(title, line_num)], t2l2s)),
+                claim=instance['claim']))
         converted_instances = sampling(converted_instances)
 
     else:
@@ -123,11 +124,11 @@ def convert_instance(instance, t2l2s, use_ir_prediction, n_sentences):
                 continue
             # 转换为 SNLI 格式
             converted_instances.append(snli_format(
-                    id='{}-{}'.format(instance['id'], str(eidx)),
-                    pair_id='{}-{}'.format(instance['id'], str(eidx)),
-                    label=convert_label(instance['label']),
-                    evidence=evidence_format(get_evidence_sentence_list(evidence_line_num, t2l2s)),
-                    claim=instance['claim']))
+                id='{}-{}'.format(instance['id'], str(eidx)),
+                pair_id='{}-{}'.format(instance['id'], str(eidx)),
+                label=convert_label(instance['label']),
+                evidence=evidence_format(get_evidence_sentence_list(evidence_line_num, t2l2s)),
+                claim=instance['claim']))
     return converted_instances
 
 
@@ -167,6 +168,13 @@ def convert(instances, use_ir_prediction=False, n_sentences=5):
     return converted_instances
 
 
+def run_convert(config):
+    for src, tar in [['train_input', 'train_output'], ['dev_input', 'dev_output']]:
+        instances = read_jsonl(config[src])
+        snli_format_instances = convert(instances, use_ir_prediction=config['use_ir_pred'], n_sentences=config['n_sentences'])
+        save_jsonl(snli_format_instances, config[tar], skip_if_exists=True)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('src')
@@ -189,7 +197,6 @@ if __name__ == '__main__':
     else:
         if os.path.exists(args.tar):
             print('WARNING: file {} alreadly exists'.format(args.tar))
-        keyerr_count = 0
 
         instances = read_jsonl(args.src)
         snli_format_instances = convert(instances, use_ir_prediction=args.use_ir_pred, n_sentences=args.n_sentences)

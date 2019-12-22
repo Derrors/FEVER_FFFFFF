@@ -1,13 +1,15 @@
 # _*_ coding: utf-8 _*_
 
+import argparse
+
 from tqdm import tqdm
+
+from converter import convert_label, titles_to_jsonl_num
+from fever_io import (get_evidence_sentence_list, load_doclines, read_jsonl,
+                      save_jsonl)
 from jack import readers
 from jack.core import QASetting
-
 from util import abs_path
-from converter import titles_to_jsonl_num, convert_label
-from fever_io import load_doclines, read_jsonl, save_jsonl, get_evidence_sentence_list
-
 
 
 def read_ir_result(path, n_sentences=5):
@@ -67,7 +69,6 @@ def flatten(_2d_list):
 
 
 def predict(reader, all_settings, batch_size):
-
     preds_list = list()
 
     for pointer in tqdm(range(0, len(all_settings), batch_size)):
@@ -91,11 +92,11 @@ def save_predictions(instances, preds_list, path, scores_for_all_candidates=True
         pred_sents = instance['evidence']
 
         # 取每个样例预测的所有标签及其得分
-        if scores_for_all_candidates:               
+        if scores_for_all_candidates:
             pred_labels_list = [[pred.text for pred in preds_instance] for preds_instance in preds]
             scores = [[float(pred.score) for pred in preds_instance] for preds_instance in preds]
         # 取每个样例的第一个标签及得分
-        else:                                       
+        else:
             pred_labels = [pred[0].text for pred in preds]
             scores = [float(pred[0].score) for pred in preds]
 
@@ -111,7 +112,7 @@ def save_predictions(instances, preds_list, path, scores_for_all_candidates=True
             dic['label'] = instance['label']
 
         if scores_for_all_candidates:
-            dic['predicted_labels'] =  [[convert_label(pred_label, inverse=True) for pred_label in pred_labels] for pred_labels in pred_labels_list],
+            dic['predicted_labels'] = [[convert_label(pred_label, inverse=True) for pred_label in pred_labels] for pred_labels in pred_labels_list],
         else:
             dic['predicted_labels'] = [convert_label(pred_label, inverse=True) for pred_label in pred_labels]
 
@@ -121,6 +122,23 @@ def save_predictions(instances, preds_list, path, scores_for_all_candidates=True
 
         store.append(dic)
     save_jsonl(store, path)
+
+
+def run_rte(config):
+    reader = readers.reader_from_file(config['saved_reader'], dropout=0.0)
+
+    for in_file, out_file in [('train_input_file', 'train_predicted_labels_and_scores'), ('dev_input_file', 'dev_predicted_labels_and_scores'), ('test_input_file', 'test_predicted_labels_and_scores')]:
+        all_settings = list()
+        instances = read_ir_result(config['in_file'], n_sentences=config['n_sentences'])
+
+        for instance in instances:
+            evidence_list = instance['evidence']
+            claim = instance['claim']
+            settings = [QASetting(question=claim, support=[evidence]) for evidence in evidence_list]
+            all_settings.append(settings)
+
+        preds_list = predict(reader, all_settings, config['batch_size'])
+        save_predictions(instances, preds_list, path=config['out_file'])
 
 
 if __name__ == '__main__':

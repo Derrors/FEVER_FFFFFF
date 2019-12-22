@@ -1,20 +1,17 @@
 # _*_ coding: utf-8 _*_
 
+import argparse
 import os
 import pickle
-import argparse
-import numpy as np
-
-from tqdm import tqdm
 from random import random, shuffle
-from collections import Counter
-from nltk.corpus import gazetteers, names
-from nltk import word_tokenize, sent_tokenize
-from sklearn.linear_model import LogisticRegression
 
-from doc_ir import *
-from util import edict, pdict, normalize_title, load_stoplist
-from fever_io import titles_to_jsonl_num, load_split_trainset, load_paper_dataset
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from tqdm import tqdm
+
+from doc_ir import (
+    doc_ir, find_titles_in_claim, phrase_features, title_edict, title_hits)
+from fever_io import load_paper_dataset, titles_to_jsonl_num
 
 
 class doc_ir_model:
@@ -35,7 +32,7 @@ class doc_ir_model:
         使用模型进行预测
         '''
         return self.model.predict_proba(x)[0, 1]
-    
+
     def process_instance(self, phrase='dummy', start=0, title='dummy', claim='dummy', obsnum=0, array=np.zeros(shape=(1, 1)), dtype=np.float32):
         '''
         将实例转换为对应的特征向量
@@ -71,8 +68,8 @@ class doc_ir_model:
                     y[obsnum] = float(yn)
                     obsnum += 1
         assert obsnum == obs
-        return X, y 
-        
+        return X, y
+
 
 def count_labels(train):
     '''
@@ -109,33 +106,31 @@ def select_docs(train):
 
     # 读取文档标题字典
     try:
-        with open('./data/edocs.bin','rb') as rb:
+        with open('./data/edocs.bin', 'rb') as rb:
             if os.path.getsize('./data/edocs.bin') < 100:
                 raise RuntimeError('Size of edocs.bin is too small. It may be an empty file.')
             edocs = pickle.load(rb)
-    except:
+    except BaseException:
         t2jnum = titles_to_jsonl_num()
         edocs = title_edict(t2jnum)
-        with open('./data/edocs.bin','wb') as wb:
+        with open('./data/edocs.bin', 'wb') as wb:
             pickle.dump(edocs, wb)
 
-    examples = Counter()
     id2titles = dict()
 
     for example in train:
         cid = example['id']
-        claim = example['claim']
         label = example['label']
 
         if label == 'NOT ENOUGH INFO':
             continue
-        
+
         # 构建训练集中的证据对应的文档集
         all_evidence = [evi for evi_set in example['evidence'] for evi in evi_set]
         docs = set()
         for evi in all_evidence:
             evi_doc = evi[2]
-            if evi_doc != None:
+            if evi_doc is not None:
                 docs.add(evi_doc)
 
         # 将 claim 中存在的 title 转换为对应的句子
@@ -165,7 +160,7 @@ def select_docs(train):
         docs = set()
         for evi in all_evidence:
             evi_doc = evi[2]
-            if evi_doc != None:
+            if evi_doc is not None:
                 docs.add(evi_doc)
 
         t2phrases = id2titles[cid]              # 通过实例的 cid 来直接获取对应的 title 字典
@@ -200,7 +195,7 @@ def select_docs(train):
 
         if yn == 1:
             tots[label] -= 1
-    
+
     # 将采样结果写入文件
     with open('./data/doc_ir_docs', 'w') as w:
         for cid in selected:
@@ -235,8 +230,8 @@ def load_selected(fname='./data/doc_ir_docs'):
             selected[cid][yn] = [t, p, s]
 
     return selected
-    
-        
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('perform ir for document')
     parser.add_argument('--best', type=int, default=5, help='how many documents to retrieve')
@@ -249,10 +244,10 @@ if __name__ == '__main__':
     try:
         with open('./data/doc_ir_model.bin', 'rb') as rb:
             model = pickle.load(rb)
-    except:
+    except BaseException:
         try:
             selected = load_selected()
-        except:
+        except BaseException:
             selected = select_docs(train)
 
         # 建立模型
@@ -260,7 +255,7 @@ if __name__ == '__main__':
         # 对训练数据进行预处理
         X, y = model.process_train(selected, train)
         # 训练模型
-        model.fit(X,y)
+        model.fit(X, y)
         # 存储训练好的模型
         with open('./data/doc_ir_model.bin', 'wb') as wb:
             if os.path.getsize('./data/edocs.bin') < 100:
@@ -269,7 +264,7 @@ if __name__ == '__main__':
     try:
         with open('./data/edocs.bin', 'rb') as rb:
             edocs = pickle.load(rb)
-    except:
+    except BaseException:
         t2jnum = titles_to_jsonl_num()
         edocs = title_edict(t2jnum)
         with open('./data/edocs.bin', 'wb') as wb:
