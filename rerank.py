@@ -20,15 +20,15 @@ def load_jsonl(path, key=None):
 
 
 def run_rerank(config):
-    dev_and_test = [
-        ('dev_rte_predictions', 'dev_aggregated_labels', 'dev_predicted_evidence', 'dev_reranked_evidence'),
-        ('test_rte_predictions', 'test_aggregated_labels', 'test_predicted_evidence', 'test_reranked_evidence')
+    train_and_dev = [
+        ('train_rte_predictions', 'train_aggregated_labels', 'train_predicted_evidence', 'train_reranked_evidence'),
+        ('dev_rte_predictions', 'dev_aggregated_labels', 'dev_predicted_evidence', 'dev_reranked_evidence')
     ]
-    for (rte_predictions, aggregated_labels, predicted_evidences, reranked_evidences) in dev_and_test:
-        rte_predictions = load_jsonl(config[rte_predictions], key='predicted_labels')
-        aggregated_labels = load_jsonl(config[aggregated_labels], key='predicted')
-        predicted_evidences = load_jsonl(config[predicted_evidences], key='predicted_sentences')
-        ids = load_jsonl(config[predicted_evidences], key='id')
+    for (rte, aggregate, predict, rerank) in train_and_dev:
+        rte_predictions = load_jsonl(config[rte], key='predicted_labels')
+        aggregated_labels = load_jsonl(config[aggregate], key='predicted')
+        predicted_evidences = load_jsonl(config[predict], key='predicted_sentences')
+        ids = load_jsonl(config[predict], key='id')
 
         predictions = []
 
@@ -60,7 +60,7 @@ def run_rerank(config):
             }
             out_preds.append(out_dict)
 
-        with open(config[reranked_evidences], 'w') as f:
+        with open(config[rerank], 'w') as f:
             for out_pred in out_preds:
                 f.write(json.dumps(out_pred) + '\n')
 

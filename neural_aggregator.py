@@ -156,7 +156,7 @@ def create_input3(predicted_labels, scores, sentence_scores, n_sentences):
     return np_out
 
 
-def simple_test(dev_dataloader):
+def simple_test(dev_dataloader, model):
     '''
     测试在开发集上的预测准确率
     '''
@@ -173,7 +173,7 @@ def simple_test(dev_dataloader):
     return performance
 
 
-def predict(test_dataloader):
+def predict(test_dataloader, model):
     '''
     获取标签的预测结果
     '''
@@ -197,11 +197,9 @@ def run_aggregator(config):
 
     train_set = Predicted_Labels_Dataset(config['train_file'], config['n_sentences'], sampling=config['sampling'], use_ev_scores=config['evi_scores'])
     dev_set = Predicted_Labels_Dataset(config['dev_file'], config['n_sentences'], use_ev_scores=config['evi_scores'])
-    test_set = Predicted_Labels_Dataset(config['test_file'], config['n_sentences'], use_ev_scores=config['evi_scores'], test=True)
 
     train_dataloader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=0)
     dev_dataloader = DataLoader(dev_set, batch_size=64, shuffle=False, num_workers=0)
-    test_dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=0)
 
     model = Net(layers=[int(width) for width in config['layers']])
 
@@ -232,16 +230,18 @@ def run_aggregator(config):
             if i % 1000 == 999:
                 print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 1000))
                 running_loss = 0.0
-        dev_results.append(simple_test(dev_dataloader))
+        dev_results.append(simple_test(dev_dataloader, model))
 
     print('Finished Training.')
     performance = max(dev_results)
     print('dev set:', performance)
 
-    dev_results = predict(dev_dataloader)
-    test_results = predict(test_dataloader)
+    train_result = predict(train_dataloader, model)
+    dev_results = predict(dev_dataloader, model)
+    # test_results = predict(test_dataloader)
+    save_jsonl(train_result, config['train_predicted_labels'])
     save_jsonl(dev_results, config['dev_predicted_labels'])
-    save_jsonl(test_results, config['test_predicted_labels'])
+    # save_jsonl(test_results, config['test_predicted_labels'])
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 # _*_ coding: utf-8 _*_
 
+import numpy as np
 import argparse
 import json
 import os
@@ -8,6 +9,18 @@ import pickle
 from doc_ir import doc_ir
 from fever_io import (load_doc_lines, load_paper_dataset, load_split_trainset, titles_to_jsonl_num)
 from line_ir import line_ir
+
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NpEncoder, self).default(obj)
 
 
 def get_evidence(data=dict(), n_docs=5, n_sents=5):
@@ -79,7 +92,7 @@ def run_ir(config):
 
         with open(out_file, 'w') as w:
             for example in pred:
-                w.write(json.dumps(example) + '\n')
+                w.write(json.dumps(example, cls=NpEncoder) + '\n')
 
 
 if __name__ == '__main__':

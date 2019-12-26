@@ -159,7 +159,7 @@ def convert(instances, use_ir_prediction=False, n_sentences=5):
     print('loading wiki data...')
 
     # 建立 title 到 jsonl 文件的查找字典
-    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('./data/wiki-pages/'), doctitles=abs_path('./data/doctitles'))
+    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('data/wiki-pages/'), doctitles=abs_path('data/doctitles'))
     t2l2s = load_doclines(all_titles, t2jnum)               # title -> line_id -> line_text
 
     converted_instances = list()

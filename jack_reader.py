@@ -25,7 +25,7 @@ def read_ir_result(path, n_sentences=5):
         instance['predicted_sentences'] = instance['predicted_sentences'][: n_sentences]        # 只保留前 n 个句子
     print('short_evidences: {} / {}'.format(short_evidences_counter, len(instances)))
 
-    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('./data/wiki-pages/wiki-pages/'), doctitles=abs_path('./data/doctitles'))
+    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('data/wiki-pages/'), doctitles=abs_path('data/doctitles'))
 
     titles = list()
     # 获取所有标题的列表
@@ -127,9 +127,9 @@ def save_predictions(instances, preds_list, path, scores_for_all_candidates=True
 def run_rte(config):
     reader = readers.reader_from_file(config['saved_reader'], dropout=0.0)
 
-    for in_file, out_file in [('train_input_file', 'train_predicted_labels_and_scores'), ('dev_input_file', 'dev_predicted_labels_and_scores'), ('test_input_file', 'test_predicted_labels_and_scores')]:
+    for in_file, out_file in [('train_input_file', 'train_predicted_labels_and_scores'), ('dev_input_file', 'dev_predicted_labels_and_scores')]:
         all_settings = list()
-        instances = read_ir_result(config['in_file'], n_sentences=config['n_sentences'])
+        instances = read_ir_result(config[in_file], n_sentences=config['n_sentences'])
 
         for instance in instances:
             evidence_list = instance['evidence']
@@ -138,7 +138,7 @@ def run_rte(config):
             all_settings.append(settings)
 
         preds_list = predict(reader, all_settings, config['batch_size'])
-        save_predictions(instances, preds_list, path=config['out_file'])
+        save_predictions(instances, preds_list, path=config[out_file])
 
 
 if __name__ == '__main__':

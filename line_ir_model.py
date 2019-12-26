@@ -11,6 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 from doc_ir import doc_ir
+from doc_ir_model import doc_ir_model
 from fever_io import load_doc_lines, load_paper_dataset, titles_to_jsonl_num
 from line_ir import line_features, line_hits, line_ir
 from util import normalize_title

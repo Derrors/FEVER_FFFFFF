@@ -6,7 +6,6 @@ import re
 import sys
 
 from tqdm import tqdm
-
 from util import abs_path
 
 
@@ -39,7 +38,7 @@ def read_jsonl(path):
     return out
 
 
-def load_doc_lines(docs=dict(), t2jnum=dict(), wikipedia_dir='./data/wiki-pages/'):
+def load_doc_lines(docs=dict(), t2jnum=dict(), wikipedia_dir='data/wiki-pages/'):
     '''
     建立由 title 查找对应的 line_id 和 line_text 的字典
     参数：
@@ -101,7 +100,7 @@ def load_doclines(titles, t2jnum, filtering=True):
     return load_doc_lines({'dummy_id': [(title, 'dummy_linum') for title in titles]}, t2jnum, wikipedia_dir=abs_path('data/wiki-pages/'))
 
 
-def titles_to_jsonl_num(wikipedia_dir='./data/wiki-pages/', doctitles='./data/doctitles'):
+def titles_to_jsonl_num(wikipedia_dir='data/wiki-pages/', doctitles='data/doctitles'):
     '''
     建立从文档标题到 jsonl 编号文件的查找字典, 并保存到 ./data/doctitles 以加速读取
     t2jnum = {'title': (jnum, point), ...}
@@ -173,7 +172,7 @@ def get_evidence_sentence_list(evidences, t2l2s):
     return evidences_sentences
 
 
-def load_wikipedia(wikipedia_dir='./data/wiki-pages/', n_files=1000):
+def load_wikipedia(wikipedia_dir='data/wiki-pages/', n_files=1000):
     '''
     加载 wiki-pages 数据, 每个 file 包含 50k articles.
     返回包含所有 wikipedia article texts 的列表
@@ -190,13 +189,6 @@ def load_wikipedia(wikipedia_dir='./data/wiki-pages/', n_files=1000):
     print('Loaded', len(all_texts), 'articles. Size (MB):', round(sys.getsizeof(all_texts) / 1024 / 1024, 3))
 
     return all_texts
-
-
-'''
-def get_label_set():
-    label_set = {'SUPPORTS','REFUTES','NOT ENOUGH INFO'}
-    return label_set
-'''
 
 
 def load_fever_train(path='data/train.jsonl', n_instances=999999):
@@ -251,7 +243,7 @@ def load_split_trainset(dev_size):
     return train_set, dev_set
 
 
-def load_paper_dataset(train=abs_path('./data/train.jsonl'), dev=abs_path('./data/dev.jsonl')):
+def load_paper_dataset(train=abs_path('data/train.jsonl'), dev=abs_path('data/dev.jsonl')):
     '''
     加载论文对应数据
     '''
