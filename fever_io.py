@@ -100,7 +100,7 @@ def load_doclines(titles, t2jnum, filtering=True):
     return load_doc_lines({'dummy_id': [(title, 'dummy_linum') for title in titles]}, t2jnum, wikipedia_dir=abs_path('data/wiki-pages/'))
 
 
-def titles_to_jsonl_num(wikipedia_dir='data/wiki-pages/', doctitles='data/doctitles'):
+def titles_to_jsonl_num(wikipedia_dir='data/wiki-pages/', doctitles='data/preprocessed_data/doctitles'):
     '''
     建立从文档标题到 jsonl 编号文件的查找字典, 并保存到 ./data/doctitles 以加速读取
     t2jnum = {'title': (jnum, point), ...}
@@ -191,7 +191,7 @@ def load_wikipedia(wikipedia_dir='data/wiki-pages/', n_files=1000):
     return all_texts
 
 
-def load_fever_train(path='data/train.jsonl', n_instances=999999):
+def load_fever_train(path='data/dataset/train.jsonl', n_instances=999999):
     '''
     加载训练集
     '''
@@ -243,7 +243,7 @@ def load_split_trainset(dev_size):
     return train_set, dev_set
 
 
-def load_paper_dataset(train=abs_path('data/train.jsonl'), dev=abs_path('data/dev.jsonl')):
+def load_paper_dataset(train=abs_path('data/dataset/train.jsonl'), dev=abs_path('data/dataset/dev.jsonl')):
     '''
     加载论文对应数据
     '''

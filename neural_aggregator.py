@@ -137,7 +137,7 @@ def create_input3(predicted_labels, scores, sentence_scores, n_sentences):
 
     # 构造输入特征
     features_per_predicted_evidence = []
-    for per_evidence_labels, per_evidence_scores, ir_evidence_scores in list(zip(predicted_labels[0], scores, sentence_scores))[:n_sentences]:
+    for per_evidence_scores, ir_evidence_scores in list(zip(scores, sentence_scores))[: n_sentences]:
 
         if not per_evidence_scores:
             new_features = [0.0, 0.0, 0.0, 0.0]
@@ -147,7 +147,7 @@ def create_input3(predicted_labels, scores, sentence_scores, n_sentences):
         features_per_predicted_evidence.extend(new_features)
 
     # 句子数小于 n_sentences 时, 补 0
-    for missing_evidence in range(n_sentences - len(sentence_scores)):
+    for _ in range(n_sentences - len(sentence_scores)):
         features_per_predicted_evidence.extend([0.0, 0.0, 0.0, 0.0])
 
     np_out = np.array(features_per_predicted_evidence)
@@ -163,7 +163,7 @@ def simple_test(dev_dataloader, model):
     neural_hit = 0
 
     with torch.no_grad():
-        for i, (target, input) in enumerate(dev_dataloader):
+        for _, (target, input) in enumerate(dev_dataloader):
             neural_pred = model(input.float())
             _, pred_labels = torch.max(neural_pred, 1)
             neural_hit += torch.sum(pred_labels == target)
@@ -180,7 +180,7 @@ def predict(test_dataloader, model):
     results = list()
 
     with torch.no_grad():
-        for i, (labels, input) in enumerate(test_dataloader):
+        for _, (labels, input) in enumerate(test_dataloader):
             neural_preds = model(input.float())
             _, pred_labels = torch.max(neural_preds, 1)
 
@@ -194,12 +194,13 @@ def predict(test_dataloader, model):
 
 
 def run_aggregator(config):
-
     train_set = Predicted_Labels_Dataset(config['train_file'], config['n_sentences'], sampling=config['sampling'], use_ev_scores=config['evi_scores'])
     dev_set = Predicted_Labels_Dataset(config['dev_file'], config['n_sentences'], use_ev_scores=config['evi_scores'])
+    # test_set = Predicted_Labels_Dataset(config['test_file'], config['n_sentences'], use_ev_scores=config['evi_scores'], test=True)
 
     train_dataloader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=0)
     dev_dataloader = DataLoader(dev_set, batch_size=64, shuffle=False, num_workers=0)
+    # test_dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=0)
 
     model = Net(layers=[int(width) for width in config['layers']])
 
@@ -238,90 +239,10 @@ def run_aggregator(config):
 
     train_result = predict(train_dataloader, model)
     dev_results = predict(dev_dataloader, model)
-    # test_results = predict(test_dataloader)
     save_jsonl(train_result, config['train_predicted_labels'])
     save_jsonl(dev_results, config['dev_predicted_labels'])
-    # save_jsonl(test_results, config['test_predicted_labels'])
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--train', required=True)
-    parser.add_argument('--dev', required=True)
-    parser.add_argument('--test', required=True)
-    parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--epochs', default=5, type=int)
-    parser.add_argument('--n_sentences', default=5, type=int)
-    parser.add_argument('--predicted_labels', required=True)
-    parser.add_argument('--test_predicted_labels', required=True)
-    parser.add_argument('--sampling', action='store_true')
-    parser.add_argument('--ev_scores', action='store_true')
-    parser.add_argument('--l2', default=0.0, type=float, required=False)
-    parser.add_argument('--layers', nargs='+', required=True)
-    args = parser.parse_args()
-
-    print(args)
-    hyperparameter2performance = dict()
-
-    for n_sentences in [9]:
-        print('=========== n_sentences {}============'.format(str(n_sentences)))
-        args.n_sentences = n_sentences
-        # number of inputs will be 4 times number of evidence sentences.
-        args.layers[0] = args.n_sentences * 4
-
-        train_set = Predicted_Labels_Dataset(args.train, args.n_sentences, sampling=args.sampling, use_ev_scores=args.ev_scores)
-        dev_set = Predicted_Labels_Dataset(args.dev, args.n_sentences, use_ev_scores=args.ev_scores)
-        test_set = Predicted_Labels_Dataset(args.test, args.n_sentences, use_ev_scores=args.ev_scores, test=True)
-
-        train_dataloader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=0)
-        dev_dataloader = DataLoader(dev_set, batch_size=64, shuffle=False, num_workers=0)
-        test_dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=0)
-
-        model = Net(layers=[int(width) for width in args.layers])
-        print('----Neural Aggregator Architecture----')
-        print(model)
-
-        class_weights = [1.0, 1.0, 1.0]
-        label2freq = Counter((instance['label'] for instance in train_set.instances))
-        total = sum(label2freq.values())
-        for label in label2freq:
-            class_weights[label2idx[label]] = 1.0 / (label2freq[label]) * total
-        print(label2freq)
-        print('Class Weights:', class_weights)
-
-        criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights))
-        optimizer = optim.Adam(model.parameters())
-
-        dev_results_throughout_training = []
-
-        for epoch in range(args.epochs):
-            print('epoch:', epoch)
-            running_loss = 0.0
-
-            for i, (labels, inputs) in enumerate(train_dataloader):
-                optimizer.zero_grad()
-
-                outputs = model(inputs.float())
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-
-                running_loss += loss.item()
-
-                if i % 1000 == 999:
-                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 1000))
-                    running_loss = 0.0
-            dev_results_throughout_training.append(simple_test(dev_dataloader))
-
-        print('Finished Training')
-        print('dev set:')
-        performance = simple_test(dev_dataloader)
-        hyperparameter2performance[n_sentences] = max(dev_results_throughout_training)
-
-    for k, v in sorted(hyperparameter2performance.items()):
-        print(v)
-
-    dev_results = predict(dev_dataloader)
-    test_results = predict(test_dataloader)
-    save_jsonl(dev_results, args.predicted_labels)
-    save_jsonl(test_results, args.test_predicted_labels)
+    config = {}
+    run_aggregator(config)

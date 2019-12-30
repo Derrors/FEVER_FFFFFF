@@ -4,6 +4,7 @@ this file is located at fever-baselines/src/
 """
 
 import os
+import re
 import json
 import argparse
 import pandas
@@ -16,7 +17,6 @@ from util import abs_path
 
 def analyse(predictions, actual, out_file):
     print_confusion_mat(predictions, actual)
-    save_wrong_instances(predictions, actual, out_file)
 
 
 def save_simple_result(path, score, acc, precision, recall):
@@ -40,19 +40,19 @@ def print_confusion_mat(predictions, actual):
     ]
 
     for pred_instance, actual_instance in zip(predictions, actual):
-        confusion_mat[label2idx[actual_instance["label"]], label2idx[
-            pred_instance["predicted_label"]]] += 1
+        confusion_mat[label2idx[actual_instance["label"]],
+                      label2idx[pred_instance["predicted_label"]]] += 1
 
     print("actual \ predicted")
     df = pandas.DataFrame(confusion_mat, labels, labels)
     print(df)
 
     pre = np.squeeze(
-        np.sum(np.multiply(confusion_mat, eye), axis=0) / np.sum(
-            confusion_mat, axis=0))
+        np.sum(np.multiply(confusion_mat, eye), axis=0) /
+        np.sum(confusion_mat, axis=0))
     rec = np.squeeze(
-        np.sum(np.multiply(confusion_mat, eye), axis=0) / np.sum(
-            confusion_mat, axis=1))
+        np.sum(np.multiply(confusion_mat, eye), axis=0) /
+        np.sum(confusion_mat, axis=1))
 
     print("precision")
     for pre_instance, label in zip(pre, labels):
@@ -132,7 +132,6 @@ def resolve_evidences(evidences, t2l2s, actual=True):
     return evidence_sentences
 
 
-import re
 __pattern = re.compile('\w+|[^\w\s]')
 
 
@@ -163,9 +162,8 @@ def save_wrong_instances(actual_file, predicted_labels_file,
         all_titles.extend(titles)
 
     print("loading wiki data...")
-    t2jnum = titles_to_jsonl_num(
-        wikipedia_dir=abs_path("data/wiki-pages/"),
-        doctitles=abs_path("data/doctitles"))
+    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path("data/wiki-pages/"),
+                                 doctitles=abs_path("data/doctitles"))
     t2l2s = load_doclines(all_titles, t2jnum)
 
     counter = 0
@@ -220,9 +218,8 @@ def save_wrong_instances(actual_file, predicted_labels_file,
         #     continue
 
         label_pred_ev = [
-            "<{}> <{}> {}".format(label, contained, ev)
-            for label, contained, ev in zip(
-                shorten_labels(pred_labels), ev_contained, pred_ev)
+            "<{}> <{}> {}".format(label, contained, ev) for label, contained,
+            ev in zip(shorten_labels(pred_labels), ev_contained, pred_ev)
         ]
         actual_ev = ev_pred["evidence"]
 
@@ -290,7 +287,7 @@ if __name__ == "__main__":
     with open(args.predicted_evidence, "r") as predictions_file:
         for line in predictions_file:
             predicted_evidence.append(json.loads(line)["predicted_sentences"])
-            id.append(json.loads(line)["id"])
+            ids.append(json.loads(line)["id"])
 
     with open(args.actual, "r") as actual_file:
         for line in actual_file:

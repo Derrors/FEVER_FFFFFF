@@ -1,12 +1,8 @@
 # _*_ coding: utf-8 _*_
 
-import argparse
-
 from tqdm import tqdm
 
-from converter import convert_label, titles_to_jsonl_num
-from fever_io import (get_evidence_sentence_list, load_doclines, read_jsonl,
-                      save_jsonl)
+from fever_io import (get_evidence_sentence_list, load_doclines, read_jsonl, titles_to_jsonl_num, save_jsonl)
 from jack import readers
 from jack.core import QASetting
 from util import abs_path
@@ -25,7 +21,7 @@ def read_ir_result(path, n_sentences=5):
         instance['predicted_sentences'] = instance['predicted_sentences'][: n_sentences]        # 只保留前 n 个句子
     print('short_evidences: {} / {}'.format(short_evidences_counter, len(instances)))
 
-    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('data/wiki-pages/'), doctitles=abs_path('data/doctitles'))
+    t2jnum = titles_to_jsonl_num(wikipedia_dir=abs_path('data/wiki-pages/'), doctitles=abs_path('data/preprocessed_data/doctitles'))
 
     titles = list()
     # 获取所有标题的列表
@@ -79,6 +75,27 @@ def predict(reader, all_settings, batch_size):
     return preds_list
 
 
+def convert_label(label, inverse=False):
+    '''
+    将 fever 标签与 snli 标签相互转换
+    '''
+    # fever 转 snli
+    fever2snli = {
+        'SUPPORTS': 'entailment',
+        'REFUTES': 'contradiction',
+        'NOT ENOUGH INFO': 'neutral'
+    }
+    # snli 转 fever
+    snli2fever = {snli: fever for fever, snli in fever2snli.items()}
+
+    if inverse:
+        assert label in snli2fever
+        return snli2fever[label]                # 转换为 fever 标签
+    else:
+        assert label in fever2snli
+        return fever2snli[label]                # 转换为 snli 标签
+
+
 def save_predictions(instances, preds_list, path, scores_for_all_candidates=True):
     '''
     保存预测的结果
@@ -124,7 +141,7 @@ def save_predictions(instances, preds_list, path, scores_for_all_candidates=True
     save_jsonl(store, path)
 
 
-def run_rte(config):
+def run_nli(config):
     reader = readers.reader_from_file(config['saved_reader'], dropout=0.0)
 
     for in_file, out_file in [('train_input_file', 'train_predicted_labels_and_scores'), ('dev_input_file', 'dev_predicted_labels_and_scores')]:
@@ -142,29 +159,5 @@ def run_rte(config):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('read claim/evidence and output verdict')
-    parser.add_argument('in_file', help='input file path for rte (e.g., dev.sentences.p5.s5.jsonl)')
-    parser.add_argument('save_preds', help='specify file name to save prediction')
-    parser.add_argument('--saved_reader', help='path to saved reader directory')
-    parser.add_argument('--only_use_topev', action='store_true', help='only use top evidence for prediction')
-    parser.add_argument('--n_sentences', type=int, default=5, help='how many sentences to read for prediction')
-    parser.add_argument('--batch_size', type=int, default=32, help='batch size for inference')
-    args = parser.parse_args()
-
-    print('loading reader from file:', args.saved_reader)
-    dam_reader = readers.reader_from_file(args.saved_reader, dropout=0.0)
-
-    results = list()
-    preds_length = list()
-    all_settings = list()
-
-    instances = read_ir_result(args.in_file, n_sentences=args.n_sentences)
-
-    for instance in instances:
-        evidence_list = instance['evidence']
-        claim = instance['claim']
-        settings = [QASetting(question=claim, support=[evidence]) for evidence in evidence_list]
-        all_settings.append(settings)
-
-    preds_list = predict(dam_reader, all_settings, args.batch_size)
-    save_predictions(instances, preds_list, path=args.save_preds)
+    config = {}
+    run_nli(config)

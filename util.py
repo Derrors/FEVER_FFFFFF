@@ -5,7 +5,7 @@ import os
 from nltk import word_tokenize
 
 
-def load_stoplist(stop_file='stoplist'):
+def load_stoplist(stop_file='./data/stoplist'):
     '''
     加载停用词表
     '''
