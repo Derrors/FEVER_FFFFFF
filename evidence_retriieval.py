@@ -7,8 +7,7 @@ import pickle
 
 from document_retrieval import doc_ret
 from sentence_retrieval import sent_ret
-from fever_io import (load_doc_lines, load_paper_dataset, load_split_trainset,
-                      titles_to_jsonl_num)
+from fever_io import load_doc_lines, load_paper_dataset, titles_to_jsonl_num
 
 
 class NpEncoder(json.JSONEncoder):

@@ -137,12 +137,12 @@ def create_input3(predicted_labels, scores, sentence_scores, n_sentences):
 
     # 构造输入特征
     features_per_predicted_evidence = []
-    for per_evidence_scores, ir_evidence_scores in list(zip(scores, sentence_scores))[: n_sentences]:
+    for per_label_scores, ir_evidence_scores in list(zip(scores, sentence_scores))[: n_sentences]:
 
-        if not per_evidence_scores:
+        if not per_label_scores:
             new_features = [0.0, 0.0, 0.0, 0.0]
         else:
-            new_features = per_evidence_scores + [ir_evidence_scores[2]]
+            new_features = per_label_scores + [ir_evidence_scores[2]]
 
         features_per_predicted_evidence.extend(new_features)
 
@@ -196,11 +196,9 @@ def predict(test_dataloader, model):
 def run_aggregator(config):
     train_set = Predicted_Labels_Dataset(config['train_file'], config['n_sentences'], sampling=config['sampling'], use_ev_scores=config['evi_scores'])
     dev_set = Predicted_Labels_Dataset(config['dev_file'], config['n_sentences'], use_ev_scores=config['evi_scores'])
-    # test_set = Predicted_Labels_Dataset(config['test_file'], config['n_sentences'], use_ev_scores=config['evi_scores'], test=True)
 
     train_dataloader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=0)
     dev_dataloader = DataLoader(dev_set, batch_size=64, shuffle=False, num_workers=0)
-    # test_dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=0)
 
     model = Net(layers=[int(width) for width in config['layers']])
 

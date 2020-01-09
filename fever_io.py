@@ -106,7 +106,8 @@ def titles_to_jsonl_num(wikipedia_dir='data/wiki-pages/', doctitles='data/prepro
     t2jnum = {'title': (jnum, point), ...}
     '''
     t2jnum = dict()
-    try:
+
+    if os.path.exists(doctitles):
         with open(doctitles, 'r') as f:
             for line in f:
                 fields = line.strip().split('\t')
@@ -114,9 +115,8 @@ def titles_to_jsonl_num(wikipedia_dir='data/wiki-pages/', doctitles='data/prepro
                 jnum = fields[1]                    # 对应的 jsonl 文件编号
                 point = int(fields[2])
                 t2jnum[title] = (jnum, point)
-            if len(t2jnum) == 0:
-                raise RuntimeError('doctitles file ({}) might be empty.'.format(doctitles))
-    except BaseException:
+    else:
+        # 建立从文档标题到 jsonl 编号文件的查找字典, point 用于快速查找定位
         with open(doctitles, 'w') as w:
             for i in tqdm(range(1, 110)):
                 jnum = '{:03d}'.format(i)
@@ -172,95 +172,19 @@ def get_evidence_sentence_list(evidences, t2l2s):
     return evidences_sentences
 
 
-def load_wikipedia(wikipedia_dir='data/wiki-pages/', n_files=1000):
-    '''
-    加载 wiki-pages 数据, 每个 file 包含 50k articles.
-    返回包含所有 wikipedia article texts 的列表
-    '''
-    all_texts = []
-    print('loading wikipedia...')
-
-    # 获取需要加载的文件名并排序
-    file_names = sorted(os.listdir(wikipedia_dir))[: n_files]
-    for file_name in tqdm(file_names):
-        with open(wikipedia_dir + file_name, 'r') as openfile:
-            texts = [json.loads(line)['text'] for line in openfile.readlines()]
-        all_texts.extend(texts)
-    print('Loaded', len(all_texts), 'articles. Size (MB):', round(sys.getsizeof(all_texts) / 1024 / 1024, 3))
-
-    return all_texts
-
-
-def load_fever_train(path='data/dataset/train.jsonl', n_instances=999999):
-    '''
-    加载训练集
-    '''
-    data = []
-    with open(path, 'r') as openfile:
-        for i, line in enumerate(openfile.readlines()):
-            data.append(json.loads(line))
-            if i + 1 >= n_instances:
-                break
-    return data
-
-
-def load_split_trainset(dev_size):
-    '''
-    加载全部训练数据, 并初步划分为训练集和验证集
-    '''
-    # load fever training data
-    full_train = load_fever_train()
-
-    positives = []              # SUPPORT 类数据
-    negatives = []              # REFUTES 类数据
-    neutrals = []               # NEI 类数据
-
-    # 根据标签对数据分类
-    for example in full_train:
-        label = example['label']
-        if label == 'SUPPORTS':
-            positives.append(example)
-        elif label == 'REFUTES':
-            negatives.append(example)
-        elif label == 'NOT ENOUGH INFO':
-            neutrals.append(example)
-
-    # 随机乱序
-    random.seed(2020)
-    random.shuffle(positives)
-    random.shuffle(negatives)
-    random.shuffle(neutrals)
-
-    # 划分验证集, 三类平衡
-    size = int(dev_size / 3)
-    dev_set = positives[: size] + negatives[: size] + neutrals[: size]
-    # 剩余数据作为训练集
-    train_set = positives[size:] + negatives[size:] + neutrals[size:]
-
-    random.shuffle(dev_set)
-    random.shuffle(train_set)
-
-    return train_set, dev_set
-
-
-def load_paper_dataset(train=abs_path('data/dataset/train.jsonl'), dev=abs_path('data/dataset/dev.jsonl')):
+def load_paper_dataset(train='./data/dataset/train.jsonl', dev='./data/dataset/dev.jsonl'):
     '''
     加载论文对应数据
     '''
-    train_ds = load_fever_train(path=train, n_instances=9999999999)
-    dev_ds = load_fever_train(path=dev, n_instances=9999999999)
-    return train_ds, dev_ds
+    train_data = []
+    dev_data = []
 
+    with open(train, 'r') as train_file:
+        for line in train_file.readlines():
+            train_data.append(json.loads(line))
 
-if __name__ == '__main__':
-    # load fever training data
-    fever_data = load_fever_train(n_instances=20)
-    print(len(fever_data))
+    with open(dev, 'r') as dev_file:
+        for line in dev_file.readlines():
+            dev_data.append(json.loads(line))
 
-    # load train and split-off dev set of size 9999.
-    train, dev = load_split_trainset(9999)
-    print(len(train))
-    print(len(dev))
-
-    for sample in train[: 3]:
-        print(sample)
+    return train_data, dev_data

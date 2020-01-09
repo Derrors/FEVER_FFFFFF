@@ -12,8 +12,7 @@ from tqdm import tqdm
 from util import load_stoplist, normalize_title
 
 from document_retrieval import doc_ret, doc_ret_model, title_edict
-from fever_io import (load_doc_lines, load_paper_dataset, load_split_trainset,
-                      titles_to_jsonl_num)
+from fever_io import load_doc_lines, load_paper_dataset, titles_to_jsonl_num
 
 stop = load_stoplist()
 
@@ -348,7 +347,6 @@ def load_selected(fname):
 
 def run_sent_ret(config):
     train, dev = load_paper_dataset()
-    # train, dev = load_split_trainset(9999)
 
     with open('data/preprocessed_data/edocs.bin', 'rb') as rb:
         edocs = pickle.load(rb)

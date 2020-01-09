@@ -11,7 +11,7 @@ from nltk.corpus import gazetteers, names
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 from util import edict, load_stoplist, normalize_title, pdict
-from fever_io import (load_paper_dataset, load_split_trainset, titles_to_jsonl_num)
+from fever_io import load_paper_dataset, titles_to_jsonl_num
 
 places = set(gazetteers.words())                # 地名
 people = set(names.words())                     # 人名
@@ -34,7 +34,7 @@ def title_edict(t2jnum={}):
 
 def find_titles_in_claim(claim='', edocs=edict()):
     '''
-    在 claim 中寻找标题及其在 claim 中的位置
+    在 claim 中寻找标题短语及其在 claim 中的位置
     '''
     find = pdict(edocs)
     docset = {}
@@ -56,35 +56,35 @@ def phrase_features(phrase='', start=0, title='', claim=''):
 
     参数：
     title: 文档标题
-    phrase: 语句
+    phrase: claim 中的短语
     claim: 对比的声明
-    start: 标题在声明中的位置
+    start: phrase 在 claim 中的位置
 
     返回值：
     features: 句子的特征字典
     '''
     features = dict()                                   # 特征字典
-    stoks = phrase.split()                              # 句子分词
+    stoks = phrase.split()                              # 分词
     _, rmndr = normalize_title(title, rflag=True)       # 标准化并分割标题
 
     features['rmndr'] = (rmndr == '')                           # True: 不存在潜在信息：(xxx)
     features['rinc'] = ((rmndr != '') and (rmndr in claim))     # True: 存在潜在信息：(xxx)且 xxx 在 claim 存在
     features['start'] = start                                   # 在 claim 中标题的位置
-    features['start0'] = (start == 0)                           # 标题在 claim 首部
-    features['lend'] = len(stoks)                               # 第一条句子的词数
-    features['lend1'] = (features['lend'] == 1)                 # True: 第一条句子只有一个单词
+    features['start0'] = (start == 0)                           # 在 claim 首部
+    features['lend'] = len(stoks)                               # 词数
+    features['lend1'] = (features['lend'] == 1)                 # True: 只有一个单词
     features['cap1'] = stoks[0][0].isupper()                    # True: 第一个单词是首字母是大写
     features['stop1'] = (stoks[0].lower() in stop)              # True：第一个单词是停用词
     features['people1'] = (stoks[0] in people)                  # True：第一个单词是人名
     features['places1'] = (stoks[0] in places)                  # True：第一个单词是地名
-    features['capany'] = False                                  # True：句子中包含首字母大写的单词
-    features['capall'] = True                                   # True：句子中每个单词的首字母都是大写
-    features['stopany'] = False                                 # True：句子中存在停用词
-    features['stopall'] = True                                  # True：句子中所有词都为停用词
-    features['peopleany'] = False                               # True：句子中存在人名
-    features['peopleall'] = True                                # True：句子中所有词都为人名
-    features['placesany'] = False                               # True：句子中存在地名
-    features['placesall'] = True                                # True：句子中所有词都为地名
+    features['capany'] = False                                  # True：包含首字母大写的单词
+    features['capall'] = True                                   # True：每个单词的首字母都是大写
+    features['stopany'] = False                                 # True：存在停用词
+    features['stopall'] = True                                  # True：所有词都为停用词
+    features['peopleany'] = False                               # True：存在人名
+    features['peopleall'] = True                                # True：所有词都为人名
+    features['placesany'] = False                               # True：存在地名
+    features['placesall'] = True                                # True：所有词都为地名
 
     for tok in stoks:
         features['capany'] = (features['capany'] or tok[0].isupper())
@@ -268,8 +268,7 @@ class doc_ret_model():
                 claim = example['claim']
                 for yn in selected[cid]:
                     [title, phrase, start] = selected[cid][yn]
-                    self.process_instance(phrase, start, title, claim, obsnum,
-                                          X)
+                    self.process_instance(phrase, start, title, claim, obsnum, X)
                     y[obsnum] = float(yn)
                     obsnum += 1
         assert obsnum == obs
@@ -298,9 +297,9 @@ def count_labels(train):
     return counts
 
 
-def select_docs(train, save_file):
+def sample_docs(train, save_file):
     '''
-    在训练数据中进行采样负样本
+    在训练数据中进行采样
 
     返回值：
     seleted[cid][yn] = [title, phrase, start]
@@ -310,10 +309,10 @@ def select_docs(train, save_file):
     sofar = {'SUPPORTS': 0, 'REFUTES': 0}
 
     # 读取文档标题字典
-    try:
+    if os.path.exists('data/preprocessed_data/edocs.bin'):
         with open('data/preprocessed_data/edocs.bin', 'rb') as rb:
             edocs = pickle.load(rb)
-    except BaseException:
+    else:
         t2jnum = titles_to_jsonl_num()
         edocs = title_edict(t2jnum)
         with open('data/preprocessed_data/edocs.bin', 'wb') as wb:
@@ -336,15 +335,16 @@ def select_docs(train, save_file):
             if evi_doc is not None:
                 docs.add(evi_doc)
 
-        # 将 claim 中存在的 title 转换为对应的句子
+        # 将 claim 中存在的 title 转换为对应的标题短语
         t2phrases = find_titles_in_claim(example['claim'], edocs)
+
         id2titles[cid] = t2phrases
         flag = False
         for title in t2phrases:
             if title in docs:
                 flag = True
 
-        # 如果 claim 中出现的 title 全部存在于证据对应的文档集中，即 claim 可通过其中出现的 title 来获取对应的证据
+        # 如果 claim 中出现的 title 存在于证据对应的文档集中，即 claim 可通过其中出现的 title 来获取对应的证据
         if flag:
             tots[label] += 1
 
@@ -352,7 +352,7 @@ def select_docs(train, save_file):
 
     # 进行采样选择数据
     for example in tqdm(train):
-        yn = 0  # yn 表示类别标签，1：SUPPORT，0：REFUTE
+        yn = 0                      # yn 表示类型，1：正样本，0：负样本
         cid = example['id']
         label = example['label']
 
@@ -437,16 +437,16 @@ def load_selected(fname):
 
 def run_doc_ret(config):
     train, dev = load_paper_dataset()
-    # train, dev = load_split_trainset(9999)
 
-    try:
+    if os.path.exists(config['doc_ret_model']):
         with open(config['doc_ret_model'], 'rb') as rb:
             model = pickle.load(rb)
-    except BaseException:
-        try:
+    else:
+        if os.path.exists(config['doc_ret_docs']):
             selected = load_selected(config['doc_ret_docs'])
-        except BaseException:
-            selected = select_docs(train, config['doc_ret_docs'])
+        else:
+            selected = sample_docs(train, config['doc_ret_docs'])
+
         # 建立模型
         model = doc_ret_model()
         # 对训练数据进行预处理
@@ -456,10 +456,11 @@ def run_doc_ret(config):
         # 存储训练好的模型
         with open(config['doc_ret_model'], 'wb') as wb:
             pickle.dump(model, wb)
-    try:
+
+    if os.path.exists('data/preprocessed_data/edocs.bin'):
         with open('data/preprocessed_data/edocs.bin', 'rb') as rb:
             edocs = pickle.load(rb)
-    except BaseException:
+    else:
         t2jnum = titles_to_jsonl_num()
         edocs = title_edict(t2jnum)
         with open('data/preprocessed_data/edocs.bin', 'wb') as wb:
@@ -473,5 +474,10 @@ def run_doc_ret(config):
 
 
 if __name__ == '__main__':
-    config = {}
+    config = {
+        'n_best': 5,
+        'edocs_path': '/home/qhli/FEVER/FEVER_FFFFF/fever/data/preprocessed_data/edocs.bin',
+        'doc_ret_docs': '/home/qhli/FEVER/FEVER_FFFFF/fever/results/doc_ret/doc_ret_docs1',
+        'doc_ret_model': '/home/qhli/FEVER/FEVER_FFFFF/fever/results/doc_ret/doc_ret_model1.bin'
+    }
     run_doc_ret(config)
