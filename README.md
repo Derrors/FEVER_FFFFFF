@@ -1,5 +1,5 @@
 <div align=center>
-    <div style="font-size:24px">
+    <div style="font-size:36px">
         <b>Four Factor Framework For Fact Finding</b>
     </div>
 </div>
