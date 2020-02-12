@@ -25,9 +25,8 @@ supports = idx2label[0]
 refutes = idx2label[1]
 nei = idx2label[2]
 
+
 # 3层全连接网络
-
-
 class Net(nn.Module):
     def __init__(self, layers=[15, 10, 5]):
         super(Net, self).__init__()
